@@ -46,16 +46,37 @@ defmodule LoggerLogstashBackend do
     md = Enum.into(Keyword.merge(md, metadata), %{})
     md = Map.put md, :pid, inspect(md.pid)
     ts = Timex.datetime(ts, :local)
+    timestamp = Timex.format!(ts, "%FT%T%z", :strftime)
+    message = to_string(msg)
+    level_string = to_string(level)
+    fields = Map.put(md, :level, level_string)
+
     IO.inspect "#{__MODULE__}.log_event type = #{inspect type}"
-    IO.inspect "#{__MODULE__}.log_event ts = #{inspect ts}"
-    IO.inspect "#{__MODULE__}.log_event msg = #{inspect msg}"
-    IO.inspect "#{__MODULE__}.log_event md = #{inspect md}"
-    IO.inspect "#{__MODULE__}.log_event level = #{inspect level}"
+    {:ok, json} = JSX.encode %{
+      type: type
+    }
+
+    IO.inspect "#{__MODULE__}.log_event timestamp = #{inspect timestamp}"
+    {:ok, json} = JSX.encode %{
+      "@timestamp": timestamp,
+    }
+
+    IO.inspect "#{__MODULE__}.log_event message = #{inspect message}"
+    {:ok, json} = JSX.encode %{
+      message: message
+    }
+
+    IO.inspect "#{__MODULE__}.log_event fields = #{inspect fields}"
+    {:ok, json} = JSX.encode %{
+      fields: fields
+    }
+
+    IO.inspect "#{__MODULE__}.log_event after fields"
     {:ok, json} = JSX.encode %{
       type: type,
-      "@timestamp": Timex.format!(ts, "%FT%T%z", :strftime),
-      message: to_string(msg),
-      fields: Map.put(md, :level, to_string(level))
+      "@timestamp": timestamp,
+      message: message,
+      fields: fields
     }
     :gen_udp.send socket, host, port, to_char_list(json)
   end
