@@ -55,23 +55,31 @@ defmodule LoggerLogstashBackend do
     {:ok, json} = JSX.encode %{
       type: type
     }
+    IO.inspect "#{__MODULE__}.log_event encoded type = #{inspect type}"
 
     IO.inspect "#{__MODULE__}.log_event timestamp = #{inspect timestamp}"
     {:ok, json} = JSX.encode %{
       "@timestamp": timestamp,
     }
+    IO.inspect "#{__MODULE__}.log_event encoded timestamp = #{inspect timestamp}"
 
     IO.inspect "#{__MODULE__}.log_event message = #{inspect message}"
     {:ok, json} = JSX.encode %{
       message: message
     }
+    IO.inspect "#{__MODULE__}.log_event encoded message = #{inspect message}"
 
     IO.inspect "#{__MODULE__}.log_event fields = #{inspect fields}"
-    {:ok, json} = JSX.encode %{
+    encoded = JSX.encode %{
       fields: fields
     }
+    IO.inspect "#{__MODULE__}.log_event JSX encoded fields = #{inspect encoded}"
 
-    IO.inspect "#{__MODULE__}.log_event after fields"
+    encoded = Poison.encode %{
+      fields: fields
+    }
+    IO.inspect "#{__MODULE__}.log_event Poison encoded fields = #{inspect encoded}"
+
     {:ok, json} = JSX.encode %{
       type: type,
       "@timestamp": timestamp,

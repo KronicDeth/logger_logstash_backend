@@ -20,6 +20,7 @@ defmodule LoggerLogstashBackend.Mixfile do
     [
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.7", only: :dev},
+      {:poison, "~> 1.5"},
       {:exjsx, "~> 3.1.0"},
       {:timex, ">= 2.0.0"}
     ]
