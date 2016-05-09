@@ -46,6 +46,11 @@ defmodule LoggerLogstashBackend do
     md = Enum.into(Keyword.merge(md, metadata), %{})
     md = Map.put md, :pid, inspect(md.pid)
     ts = Timex.datetime(ts, :local)
+    IO.inspect "#{__MODULE__}.log_event type = #{inspect type}"
+    IO.inspect "#{__MODULE__}.log_event ts = #{inspect ts}"
+    IO.inspect "#{__MODULE__}.log_event msg = #{inspect msg}"
+    IO.inspect "#{__MODULE__}.log_event md = #{inspect md}"
+    IO.inspect "#{__MODULE__}.log_event level = #{inspect level}"
     {:ok, json} = JSX.encode %{
       type: type,
       "@timestamp": Timex.format!(ts, "%FT%T%z", :strftime),
