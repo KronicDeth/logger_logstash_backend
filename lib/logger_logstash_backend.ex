@@ -49,7 +49,9 @@ defmodule LoggerLogstashBackend do
     timestamp = Timex.format!(ts, "%FT%T%z", :strftime)
     message = to_string(msg)
     level_string = to_string(level)
-    fields = Map.put(md, :level, level_string)
+    fields = md
+             |> Map.put(:level, level_string)
+             |> inspect_pids
 
     IO.inspect "#{__MODULE__}.log_event type = #{inspect type}"
     {:ok, json} = JSX.encode %{
@@ -70,6 +72,7 @@ defmodule LoggerLogstashBackend do
     IO.inspect "#{__MODULE__}.log_event encoded message = #{inspect message}"
 
     IO.inspect "#{__MODULE__}.log_event fields = #{inspect fields}"
+
     encoded = JSX.encode %{
       fields: fields
     }
@@ -109,5 +112,15 @@ defmodule LoggerLogstashBackend do
       type: type,
       metadata: metadata
     }
+  end
+
+  # JSX.encode can't encode pids
+  defp inspect_pids(fields) when is_map(fields) do
+    Enum.into fields, %{}, fn
+      {key, pid} when is_pid(pid) ->
+        {key, inspect(pid)}
+      {key, value} ->
+        {key, value}
+    end
   end
 end
