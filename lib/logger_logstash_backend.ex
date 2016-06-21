@@ -63,8 +63,8 @@ defmodule LoggerLogstashBackend do
   end
 
   def handle_info({:tcp_closed, socket}, state = %__MODULE__{host: host, port: port, socket: socket}) do
-    with {:error, _} <- configure_socket(state, host, port) do
-      {:ok, state}
+    with {:error, reason} <- configure_socket(state, host, port) do
+      {:ok, %{state | socket: nil}}
     end
   end
 
@@ -103,15 +103,7 @@ defmodule LoggerLogstashBackend do
       fields: fields
     }
 
-    with {:error, reason} <- Socket.send(state, [json, "\n"]) do
-      # fallback in case TCP configuration is bad
-      IO.puts :stderr,
-              "Could not log message (#{json}) to socket (#{url(state)}) due to #{inspect reason}.  " <>
-              "Check that state (#{inspect state}) is correct."
-    end
-
-
-    {:ok, state}
+    send_with_retry(state, json)
   end
 
   defp configure(name, opts) when is_atom(name) and is_list(opts) do
@@ -131,8 +123,7 @@ defmodule LoggerLogstashBackend do
     configure_socket(state, host, port)
   end
 
-  defp configure_socket(state, host, port) when is_nil(host) or is_nil(port), do: {:ok, state}
-  defp configure_socket(state, host, port) do
+  defp configure_socket(state = %__MODULE__{host: host, port: port}) do
     with reply = {:error, reason} <- Socket.open %{state | host: to_char_list(host), port: port} do
       IO.puts :stderr, "Could not open socket (#{url(state)}) due to reason #{inspect reason}"
 
@@ -140,6 +131,14 @@ defmodule LoggerLogstashBackend do
     end
   end
 
+  defp configure_socket(state, host, port) when is_nil(host) or is_nil(port), do: {:ok, state}
+  defp configure_socket(state, host, port), do: configure_socket %{state | host: to_char_list(host), port: port}
+
+  defp fallback_log(state, json, reason) do
+    IO.puts :stderr,
+            "Could not log message (#{json}) to socket (#{url(state)}) due to #{inspect reason}.  " <>
+            "Check that state (#{inspect state}) is correct."
+  end
 
   # inspects the argument only if it is a pid
   defp inspect_pid(pid) when is_pid(pid), do: inspect(pid)
@@ -149,6 +148,31 @@ defmodule LoggerLogstashBackend do
   defp inspect_pids(fields) when is_map(fields) do
     Enum.into fields, %{}, fn {key, value} ->
       {key, inspect_pid(value)}
+    end
+  end
+
+  defp send_with_retry(state = %__MODULE__{socket: nil}, json), do: send_with_new_socket(state, json)
+  defp send_with_retry(state, json) do
+    case Socket.send(state, [json, "\n"]) do
+      :ok ->
+        {:ok, state}
+      {:error, :closed} ->
+        send_with_new_socket(state, json)
+      {:error, reason} ->
+        fallback_log(state, json, reason)
+
+        {:ok, state}
+    end
+  end
+
+  defp send_with_new_socket(state, json) do
+    case configure_socket(state) do
+      {:error, reason} ->
+        fallback_log(state, json, reason)
+
+        {:ok, state}
+      {:ok, new_state} ->
+        send_with_retry(new_state, json)
     end
   end
 
